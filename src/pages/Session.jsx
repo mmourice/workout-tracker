@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store.jsx";
-import { TrashIcon } from "../components/Icons.jsx";
+import { TrashIcon, PlusIcon } from "../Icons.jsx";
 
 const NumInput = (props) => (
   <input
