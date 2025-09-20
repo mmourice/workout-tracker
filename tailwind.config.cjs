@@ -16,21 +16,15 @@ module.exports = {
           bgBottom: '#1E1729'
         }
       },
-      borderRadius: {
-        button: '35px',
-        card: '15px',
-        chip: '5px'
-      },
-      fontFamily: {
-        mont: ['Montserrat', 'ui-sans-serif', 'system-ui']
-      },
+      borderRadius: { button: '35px', card: '15px', chip: '5px' },
+      fontFamily: { mont: ['Montserrat','ui-sans-serif','system-ui'] },
       fontSize: {
-        h1: ['36px', { lineHeight: '1.1' }],
-        h2: ['26px', { lineHeight: '1.2' }],
-        body: ['12px', { lineHeight: '1.5' }],
-        label: ['12px', { lineHeight: '1.2' }]
+        h1: ['36px',{lineHeight:'1.1'}],
+        h2: ['26px',{lineHeight:'1.2'}],
+        body: ['12px',{lineHeight:'1.5'}],
+        label: ['12px',{lineHeight:'1.2'}]
       }
-    },
+    }
   },
-  plugins: [],
+  plugins: []
 };
