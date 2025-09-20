@@ -1,13 +1,9 @@
 import React from "react";
 import { useStore } from "../store.jsx";
+import { TrashIcon } from "../components/Icons.jsx";
 
 export default function Exercises() {
-  const {
-    state,
-    addExercise,
-    updateExercise,
-    removeExercise,
-  } = useStore();
+  const { state, addExercise, updateExercise, removeExercise } = useStore();
 
   return (
     <div className="space-y-4">
@@ -23,7 +19,9 @@ export default function Exercises() {
       {/* Exercise cards */}
       <div className="space-y-4">
         {state.exercises.length === 0 ? (
-          <div className="text-neutral-400">No exercises yet. Tap “Add Exercise”.</div>
+          <div className="text-neutral-400">
+            No exercises yet. Tap “Add Exercise”.
+          </div>
         ) : (
           state.exercises.map((ex) => (
             <div
@@ -111,8 +109,9 @@ export default function Exercises() {
                   onClick={() => removeExercise(ex.id)}
                   className="px-3 py-2 rounded-button hover:bg-[#181818]"
                   title="Delete exercise"
+                  aria-label="Delete exercise"
                 >
-                  🗑
+                  <TrashIcon />
                 </button>
               </div>
             </div>
