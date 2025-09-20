@@ -1,5 +1,5 @@
 import React from 'react'
-import { useStore } from '../store'
+import { useStore } from '../store.jsx'
 
 export default function Plan(){
   const { state, setState, exerciseMap, uid } = useStore()
