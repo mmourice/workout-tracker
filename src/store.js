@@ -1,3 +1,4 @@
+// src/store.js
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const LS_KEY = 'workout_tracker_local_v1'
@@ -17,23 +18,48 @@ const defaultState = {
 }
 
 const Ctx = createContext(null)
+
 export function StoreProvider({ children }) {
   const [state, setState] = useState(defaultState)
-  useEffect(()=>{ const raw = localStorage.getItem(LS_KEY); if (raw) setState(JSON.parse(raw)) },[])
-  useEffect(()=>{ localStorage.setItem(LS_KEY, JSON.stringify(state)) },[state])
 
-  const exerciseMap = useMemo(()=>Object.fromEntries(state.exercises.map(e=>[e.id, e])), [state.exercises])
+  // Load once from localStorage
+  useEffect(()=>{
+    try {
+      const raw = localStorage.getItem(LS_KEY)
+      if (raw) setState(JSON.parse(raw))
+    } catch {}
+  },[])
+
+  // Persist on every change
+  useEffect(()=>{
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(state))
+    } catch {}
+  },[state])
+
+  const exerciseMap = useMemo(
+    () => Object.fromEntries(state.exercises.map(e => [e.id, e])),
+    [state.exercises]
+  )
 
   function saveSession(session){
     const log = {
       id: uid(),
       dateISO: session.dateISO,
       dayId: session.dayId,
-      entries: session.entries.map(e => ({ exerciseId: e.exerciseId, weights: e.weights.map(w => Number(w) || 0) })),
+      entries: session.entries.map(e => ({
+        exerciseId: e.exerciseId,
+        weights: e.weights.map(w => Number(w) || 0)
+      })),
     }
     setState(s => ({ ...s, logs: [...s.logs, log] }))
   }
 
-  return <Ctx.Provider value={{ state, setState, exerciseMap, uid, saveSession }}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={{ state, setState, exerciseMap, uid, saveSession }}>
+      {children}
+    </Ctx.Provider>
+  )
 }
+
 export function useStore(){ return useContext(Ctx) }
