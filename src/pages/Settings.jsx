@@ -1,5 +1,5 @@
 import React from 'react'
-import { useStore } from '../store'
+import { useStore } from '../store.jsx'
 
 export default function Settings(){
   const { state, setState } = useStore()
