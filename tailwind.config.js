@@ -1,24 +1,34 @@
+/** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html','./src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        brand: "#F16202",
-        bgDark: "#000000",
-        bgDark2: "#1E1729",
-        textPrimary: "#FFFFFF",
-        textSecondary: "#FF6600"
-      },
-      fontFamily: {
-        sans: ["Montserrat", "sans-serif"]
+        brand: {
+          primary: '#F16202',
+          secondary: '#E0E0E0',
+          text: '#FFFFFF',
+          accent: '#FF6600',
+          card: '#111111',
+          border: '#2A2A2A',
+          input: '#141414',
+          bgTop: '#000000',
+          bgBottom: '#1E1729'
+        }
       },
       borderRadius: {
-        button: "35px",
-        card: "15px",
-        pill: "5px"
+        button: '35px',
+        card: '15px',
+        chip: '5px'
+      },
+      fontFamily: {
+        mont: ['Montserrat', 'ui-sans-serif', 'system-ui']
+      },
+      fontSize: {
+        h1: ['36px', { lineHeight: '1.1' }],
+        h2: ['26px', { lineHeight: '1.2' }],
+        body: ['12px', { lineHeight: '1.5' }],
+        label: ['12px', { lineHeight: '1.2' }]
       }
     },
   },
