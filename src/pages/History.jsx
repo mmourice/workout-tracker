@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { useStore } from '../store'
+import { useStore } from '../store.jsx'
 
 export default function History(){
   const { state } = useStore()
