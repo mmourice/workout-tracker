@@ -1,25 +1,40 @@
 import React from "react";
 import { useStore } from "../store.jsx";
+import { TrashIcon } from "../components/Icons.jsx";
 
 export default function Plan() {
   const {
-    state, updateDay, addDay, removeDay,
-    addExerciseToDay, removeExerciseFromDay, exerciseMap
+    state,
+    updateDay,
+    addDay,
+    removeDay,
+    addExerciseToDay,
+    removeExerciseFromDay,
+    exerciseMap,
   } = useStore();
 
   return (
     <div className="space-y-4">
+      {/* Add Day */}
       <button
         onClick={addDay}
-        className="px-4 py-2 rounded-button border border-brand-border hover:bg-[#181818] flex items-center gap-2"
+        className="px-4 py-2 rounded-button bg-brand-primary text-black font-mont flex items-center gap-2"
       >
-        <span>+</span> <span>Add Day</span>
+        <span className="text-lg leading-none">＋</span>
+        <span>Add Day</span>
       </button>
 
+      {/* Days */}
       {state.plan.days.map((d) => (
-        <div key={d.id} className="rounded-card border border-brand-border bg-brand-card p-4 space-y-3">
+        <div
+          key={d.id}
+          className="rounded-card border border-brand-border bg-brand-card p-4 space-y-3"
+        >
+          {/* Day name */}
           <div>
-            <label className="block text-label text-brand-accent mb-1">Day name</label>
+            <label className="block text-label text-brand-accent mb-1">
+              Day name
+            </label>
             <input
               value={d.name}
               onChange={(e) => updateDay(d.id, { name: e.target.value })}
@@ -27,17 +42,30 @@ export default function Plan() {
             />
           </div>
 
+          {/* Current exercises (vertical list) */}
           <div>
             <div className="text-label text-brand-accent mb-2">Exercises</div>
             <div className="space-y-2">
               {d.exerciseIds.length === 0 ? (
-                <div className="text-neutral-400">No exercises yet. Add some below.</div>
+                <div className="text-neutral-400">
+                  No exercises yet. Add some below.
+                </div>
               ) : (
                 d.exerciseIds.map((eid) => (
-                  <div key={eid} className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2">
-                    <span className="text-body font-mont truncate">{exerciseMap[eid]?.name || "(missing)"}</span>
-                    <button onClick={() => removeExerciseFromDay(d.id, eid)} className="px-2" aria-label="Remove">
-                      🗑
+                  <div
+                    key={eid}
+                    className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2"
+                  >
+                    <span className="text-body font-mont truncate">
+                      {exerciseMap[eid]?.name || "(missing)"}
+                    </span>
+                    <button
+                      onClick={() => removeExerciseFromDay(d.id, eid)}
+                      className="px-2"
+                      aria-label="Remove exercise from day"
+                      title="Remove"
+                    >
+                      <TrashIcon />
                     </button>
                   </div>
                 ))
@@ -45,6 +73,7 @@ export default function Plan() {
             </div>
           </div>
 
+          {/* Add exercise (vertical buttons) */}
           <div>
             <div className="text-label text-brand-accent mb-2">Add exercise</div>
             <div className="space-y-2">
@@ -56,15 +85,22 @@ export default function Plan() {
                     onClick={() => addExerciseToDay(d.id, e.id)}
                     className="w-full text-left px-3 py-2 rounded-button border border-brand-border hover:bg-[#181818] flex items-center gap-2"
                   >
-                    <span>+</span> <span>{e.name}</span>
+                    <span className="text-lg leading-none">＋</span>
+                    <span>{e.name}</span>
                   </button>
                 ))}
             </div>
           </div>
 
-          <div>
-            <button onClick={() => removeDay(d.id)} className="text-red-500 text-label flex items-center gap-2">
-              <span>🗑</span> <span>Delete Day</span>
+          {/* Delete day */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => removeDay(d.id)}
+              className="px-2"
+              aria-label="Delete day"
+              title="Delete day"
+            >
+              <TrashIcon />
             </button>
           </div>
         </div>
