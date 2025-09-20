@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useStore } from '../store'
+import { useStore } from '../store.jsx'
 
 const Input = (props) => (
   <input
