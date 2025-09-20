@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { useStore } from "../store.jsx";
-import { TrashIcon } from "../components/Icons.jsx";
+import { TrashIcon, PlusIcon } from "../Icons.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core", "Cardio", "Other"];
