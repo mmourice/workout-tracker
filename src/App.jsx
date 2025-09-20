@@ -5,7 +5,7 @@ import Plan from './pages/Plan.jsx'
 import Exercises from './pages/Exercises.jsx'
 import History from './pages/History.jsx'
 import Settings from './pages/Settings.jsx'
-import { StoreProvider } from './store.js'
+import { StoreProvider } from './store.jsx'
 
 const Tab = ({ to, children }) => (
   <NavLink to={to} className={({isActive}) =>
