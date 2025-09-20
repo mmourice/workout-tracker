@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store.jsx";
+import { TrashIcon } from "../components/Icons.jsx";
 
 const NumInput = (props) => (
   <input
@@ -12,22 +13,19 @@ const NumInput = (props) => (
   />
 );
 
-// Simple 2D white outline trash icon (no external libs)
-const TrashIcon = ({ className = "w-5 h-5" }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="white"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 6h18" />
-    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-    <path d="M10 11v6M14 11v6" />
-  </svg>
+// Input with a right-side unit badge to keep weight/reps perfectly aligned
+const UnitField = ({ value, onChange, placeholder, unit = "kg" }) => (
+  <div className="relative">
+    <NumInput
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="pr-10" // space for unit badge
+    />
+    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs opacity-70 select-none">
+      {unit}
+    </span>
+  </div>
 );
 
 export default function Session() {
@@ -51,7 +49,7 @@ export default function Session() {
   // local “today” session (weights + reps, can add/remove sets)
   const [session, setSession] = useState(null);
 
-  // Prefill from the most recent log
+  // Prefill from most recent log
   useEffect(() => {
     if (!day) return;
     const entries = day.exerciseIds.map((eid) => {
@@ -97,9 +95,7 @@ export default function Session() {
   };
 
   const removeExerciseCard = (eid) => {
-    // remove from the current day (so it won’t appear next time)
-    removeExerciseFromDay(day.id, eid);
-    // also remove from today’s session view immediately
+    removeExerciseFromDay(day.id, eid); // remove from plan for this day
     setSession((s) => {
       const c = structuredClone(s);
       c.entries = c.entries.filter((e) => e.exerciseId !== eid);
@@ -132,10 +128,9 @@ export default function Session() {
 
       {/* Actions */}
       <div className="flex gap-2">
-        {/* Copy last is effectively the default state, keep a button for clarity */}
         <button
           className="px-4 py-2 rounded-button border border-brand-border"
-          onClick={() => setSession((s) => ({ ...s }))} // noop, already copied
+          onClick={() => setSession((s) => ({ ...s }))} // already prefilled
           title="Already prefilled from last"
         >
           ⤴︎ Copy last
@@ -150,7 +145,7 @@ export default function Session() {
                 ...e,
                 weights: e.weights.map(() => "0"),
                 reps: e.reps.map(
-                  (_, i) => String(exerciseMap[e.exerciseId]?.reps || 10)
+                  () => String(exerciseMap[e.exerciseId]?.reps || 10)
                 ),
               })),
             }))
@@ -176,51 +171,54 @@ export default function Session() {
           const ex = exerciseMap[entry.exerciseId];
           if (!ex) return null;
 
+          const Title = ex.link
+            ? (props) => (
+                <a
+                  href={ex.link}
+                  target="_blank"
+                  className="underline decoration-brand-accent underline-offset-2"
+                >
+                  {props.children}
+                </a>
+              )
+            : (props) => <span>{props.children}</span>;
+
           return (
             <div
               key={entry.exerciseId}
               className="border border-brand-border rounded-card p-4 bg-brand-card space-y-3"
             >
-              {/* Header */}
+              {/* Header line: clickable title + actions on the same row */}
               <div className="flex items-start justify-between gap-3">
-                <div className="font-bold">
-                  {ex.name}{" "}
-                  <span className="text-brand-accent">
-                    ({ex.sets} x {ex.reps})
-                  </span>
+                <div className="font-bold leading-snug">
+                  <Title>
+                    {ex.name}{" "}
+                    <span className="text-brand-accent">
+                      ({ex.sets} x {ex.reps})
+                    </span>
+                  </Title>
                 </div>
-                <div className="flex items-center gap-4">
-                  {ex.link ? (
-                    <a
-                      href={ex.link}
-                      target="_blank"
-                      className="underline text-brand-accent"
-                    >
-                      How-to ↗
-                    </a>
-                  ) : (
-                    <span className="text-neutral-400">No link</span>
-                  )}
+                <div className="flex items-center gap-3">
                   <button
                     className="flex items-center gap-1 px-2 py-1 rounded-button hover:bg-[#181818]"
                     onClick={() => addSet(idx, ex.reps)}
                     title="Add Set"
+                    aria-label="Add set"
                   >
                     <span className="text-lg leading-none">＋</span>
-                    <span className="text-label">Add Set</span>
                   </button>
                   <button
-                    className="flex items-center gap-2 px-2 py-1 rounded-button hover:bg-[#181818]"
+                    className="flex items-center px-2 py-1 rounded-button hover:bg-[#181818]"
                     onClick={() => removeExerciseCard(entry.exerciseId)}
                     title="Remove workout from this day"
+                    aria-label="Remove workout"
                   >
                     <TrashIcon />
-                    <span className="text-label">Remove</span>
                   </button>
                 </div>
               </div>
 
-              {/* Sets grid: 2 columns on small screens, 3+ on wide */}
+              {/* Sets grid: 2 columns on phones, 3 on larger */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {entry.weights.map((w, i) => (
                   <div
@@ -230,12 +228,13 @@ export default function Session() {
                     <div className="text-label text-brand-accent mb-2">
                       Set {i + 1}
                     </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-label opacity-70 mb-1">
-                          Weight ({state.units})
+                          Weight
                         </label>
-                        <NumInput
+                        <UnitField
                           value={entry.weights[i]}
                           onChange={(e) => {
                             const v = e.target.value;
@@ -245,9 +244,11 @@ export default function Session() {
                               return c;
                             });
                           }}
-                          placeholder={`0 ${state.units}`}
+                          placeholder="0"
+                          unit={state.units}
                         />
                       </div>
+
                       <div>
                         <label className="block text-label opacity-70 mb-1">
                           Reps
