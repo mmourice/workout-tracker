@@ -1,4 +1,4 @@
-/* ===== Workout Tracker — Modern Theme v2 (stable) ===== */
+/* ===== Workout Tracker — Modern Theme v3 (unified) ===== */
 :root{
   --accent:#F16202; --accent2:#FF8C42;
   --bg1:#0A0A0A; --bg2:#1B0F29;
@@ -8,17 +8,21 @@
   --r-card:18px; --r-pill:999px; --shadow:0 8px 24px rgba(0,0,0,.35);
 }
 
-html,body{background:radial-gradient(900px 520px at 50% -100px,#20102F 0%,var(--bg2) 35%,var(--bg1) 100%) fixed;color:var(--txt);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-
+html,body{
+  background:radial-gradient(900px 520px at 50% -100px,#20102F 0%,var(--bg2) 35%,var(--bg1) 100%) fixed;
+  color:var(--txt);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
 .app-title,h1{letter-spacing:-.02em;font-weight:800}
 
 /* Cards / inputs */
 .rounded-card{border-radius:var(--r-card)!important;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04))!important;border:1px solid var(--bor)!important;box-shadow:var(--shadow);backdrop-filter:blur(16px)}
 .bg-brand-input{background:var(--input)!important;border:1px solid var(--bor)!important;backdrop-filter:blur(10px)}
-
-input,select{background:var(--input)!important;border:1px solid var(--bor)!important;border-radius:14px!important;color:var(--txt)!important;height:48px!important;font-size:18px!important;font-weight:700!important;outline:none}
+input,select{
+  background:var(--input)!important;border:1px solid var(--bor)!important;border-radius:14px!important;
+  color:var(--txt)!important;height:48px!important;font-size:18px!important;font-weight:700!important;outline:none
+}
 input::placeholder{color:rgba(255,255,255,.4)}
-/* keep value visible even when number inputs on iOS */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
 
@@ -26,17 +30,20 @@ input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:
 .muted{color:var(--muted)}
 
 /* Buttons */
-.rounded-button{border-radius:var(--r-pill)!important;padding:10px 16px!important;border:1px solid var(--bor)!important;background:rgba(255,255,255,.03)!important;color:var(--txt)!important;transition:transform .06s,background .2s,box-shadow .2s}
+.rounded-button{
+  border-radius:var(--r-pill)!important;padding:10px 16px!important;border:1px solid var(--bor)!important;
+  background:rgba(255,255,255,.03)!important;color:var(--txt)!important;
+  transition:transform .06s,background .2s,box-shadow .2s
+}
 .rounded-button:hover{background:rgba(255,255,255,.06)!important}
 .rounded-button:active{transform:translateY(1px) scale(.99)}
 .bg-brand-primary{background:linear-gradient(90deg,var(--accent),var(--accent2))!important;border:none!important;color:#111!important;box-shadow:0 6px 18px rgba(241,98,2,.35)}
-
-/* Ghost icons (no frames) */
 .icon-btn.ghost{all:unset;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer;color:#fff}
 .icon-btn.ghost svg{width:20px;height:20px;stroke-width:2}
 .icon-btn.ghost:hover{opacity:.86;transform:translateY(-.5px)}
 
 /* Tabs */
+.tabs-row{display:flex;flex-wrap:wrap;gap:12px}
 .tabs-row button{border-radius:var(--r-pill);background:rgba(255,255,255,.04);border:1px solid var(--bor);color:var(--txt)}
 .tabs-row .is-active{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#111;border:none;box-shadow:0 4px 14px rgba(241,98,2,.28)}
 
@@ -55,14 +62,30 @@ input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:
 .set-card input + span{font-size:12px;font-weight:700;position:absolute;right:12px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.6)}
 .unit-wrap{position:relative;flex:1}
 
-/* Accordion */
-.acc-title{font-size:22px;font-weight:800;letter-spacing:-.02em}
-.acc-chevron{font-size:18px;opacity:.9;transform:translateY(-1px)}
-
-/* Timer chip (simple & reliable) */
+/* Timer chip */
 .timer-chip{display:flex;align-items:center;gap:8px}
 .chip-btn{padding:6px 10px;border:1px solid var(--bor);border-radius:var(--r-pill);background:rgba(255,255,255,.05);color:var(--txt);font-size:12px;font-weight:700}
 .chip-btn:hover{background:rgba(255,255,255,.1)}
+
+/* ------- Exercises page: flat group rows (no frames), unified style ------- */
+.group-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px;border-radius:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.03));
+  border:1px solid var(--bor);
+}
+.group-row .title{font-weight:800;letter-spacing:-.02em;font-size:22px}
+.group-row .right{display:flex;align-items:center;gap:10px}
+.group-row .chev{opacity:.9;font-weight:800}
+
+/* Search + add layout */
+.search-input{width:100%;border-radius:14px;border:1px solid var(--bor);background:var(--input);padding:12px 14px;color:var(--txt)}
+.add-exercise-main{display:inline-flex;align-items:center;gap:10px;border:none;border-radius:var(--r-pill);padding:12px 18px;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#111;font-weight:800;box-shadow:0 6px 18px rgba(241,98,2,.35)}
+.add-exercise-main svg{width:18px;height:18px}
+
+/* Modal header X */
+.modal-close{all:unset;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid var(--bor)}
+.modal-close:active{transform:scale(.98)}
 
 @media (max-width:480px){
   .rounded-button,.icon-btn{height:44px}
