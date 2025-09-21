@@ -21,7 +21,7 @@ export default function Session() {
   const { state, exerciseMap, buildSessionForDay, saveSession } = useStore();
   const [selectedDayId, setSelectedDayId] = useState(state.plan.days[0]?.id || "");
   const [session, setSession] = useState(null);
-  const [kicks, setKicks] = useState({}); // bump to start timer
+  const [kicks, setKicks] = useState({});
 
   useEffect(() => {
     setSession(buildSessionForDay(selectedDayId));
@@ -41,7 +41,6 @@ export default function Session() {
     e.sets.push({ weight: last.weight, reps: last.reps });
     return c;
   });
-
   const delSet = (exId, i) => setSession(s => {
     const c = structuredClone(s);
     const e = c.entries.find(x => x.exerciseId === exId);
@@ -50,7 +49,6 @@ export default function Session() {
     if (!e.sets.length) e.sets.push({ weight: "0", reps: "10" });
     return c;
   });
-
   const removeExerciseFromSession = (exId) =>
     setSession(s => ({ ...s, entries: s.entries.filter(e => e.exerciseId !== exId) }));
 
@@ -62,14 +60,14 @@ export default function Session() {
 
   return (
     <div className="space-y-5">
-      {/* Day selector */}
+      {/* Tabs are defined in layout; here only day pills + actions */}
       <div className="space-y-2">
         <div className="text-label">Pick day</div>
-        <div className="flex flex-wrap gap-8">
+        <div className="tabs-row">
           {state.plan.days.map(d => (
             <button
               key={d.id}
-              className={`rounded-button px-4 py-2 ${d.id === selectedDayId ? "bg-brand-primary text-black border-transparent" : ""}`}
+              className={`rounded-button ${d.id === selectedDayId ? "is-active" : ""}`}
               onClick={() => setSelectedDayId(d.id)}
             >
               {d.name}
@@ -78,14 +76,12 @@ export default function Session() {
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-8">
+      <div className="tabs-row">
         <button className="rounded-button" onClick={() => setSession(buildSessionForDay(selectedDayId))}>Copy last</button>
         <button className="rounded-button" onClick={() => setSession(buildSessionForDay(selectedDayId))}>Clear</button>
         <button className="rounded-button bg-brand-primary text-black" onClick={onSave}>Save Session</button>
       </div>
 
-      {/* Exercises */}
       {session.entries.map((en) => {
         const ex = exerciseMap[en.exerciseId];
         if (!ex) return null;
