@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useStore } from "../store.jsx";
 import { TrashIcon, PlusIcon } from "../Icons.jsx";
 import Modal from "../components/Modal.jsx";
+import Accordion from "../components/Accordion.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const useQuery = () => new URLSearchParams(useLocation().search);
@@ -18,7 +19,6 @@ export default function Exercises() {
   const addToDay = q.get("addToDay");
   const isSelectMode = Boolean(addToDay);
 
-  // search
   const [search, setSearch] = useState("");
 
   // modal state
@@ -36,13 +36,16 @@ export default function Exercises() {
     return map;
   }, [state.exercises, GROUPS]);
 
+  const filtered = search.trim()
+    ? state.exercises.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+    : null;
+
   const openCreate = (group) => {
     setEditing(null);
     setTargetGroup(group);
     setForm({ name: "", sets: "3", reps: "10", link: "" });
     setModalOpen(true);
   };
-
   const openEdit = (ex) => {
     setEditing(ex);
     setTargetGroup(ex.group || "Other");
@@ -54,7 +57,6 @@ export default function Exercises() {
     });
     setModalOpen(true);
   };
-
   const saveCreate = () => {
     if (!form.name.trim()) return alert("Please enter a name.");
     addExercise();
@@ -75,7 +77,6 @@ export default function Exercises() {
     }
     setModalOpen(false);
   };
-
   const saveEdit = () => {
     if (!editing) return;
     updateExercise(editing.id, {
@@ -87,16 +88,11 @@ export default function Exercises() {
     });
     setModalOpen(false);
   };
-
   const pickExistingForDay = (exId) => {
     if (!isSelectMode) return;
     addExerciseToDay(addToDay, exId);
     navigate("/plan");
   };
-
-  const filtered = search.trim()
-    ? state.exercises.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
-    : null;
 
   return (
     <div className="space-y-5">
@@ -117,7 +113,7 @@ export default function Exercises() {
         )}
       </div>
 
-      {/* Search results or grouped view */}
+      {/* Search results OR grouped accordions */}
       {filtered ? (
         <div className="space-y-2">
           {filtered.length === 0 ? (
@@ -140,39 +136,45 @@ export default function Exercises() {
           ))}
         </div>
       ) : (
-        GROUPS.map(group => (
-          <div key={group} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-h2 font-mont font-bold">{group}</h3>
-              <button className="icon-btn" onClick={() => openCreate(group)} aria-label={`Add ${group}`}>
-                <PlusIcon />
-              </button>
-            </div>
-
-            {grouped[group].length === 0 ? (
-              <div className="text-neutral-500 text-sm">No exercises in {group} yet.</div>
-            ) : (
-              <div className="space-y-2">
-                {grouped[group].map(ex => (
-                  <div key={ex.id}
-                       className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2">
-                    <button
-                      className="text-left text-body underline decoration-brand-accent underline-offset-2"
-                      onClick={() => (isSelectMode ? pickExistingForDay(ex.id) : openEdit(ex))}
-                    >
-                      {ex.name}
-                    </button>
-                    {!isSelectMode && (
-                      <button className="icon-btn" onClick={() => removeExercise(ex.id)} aria-label="Delete">
-                        <TrashIcon />
+        // Accordions shrink long pages dramatically
+        <div className="space-y-3">
+          {GROUPS.map(group => (
+            <Accordion
+              key={group}
+              id={group}
+              title={group}
+              defaultOpen={false}
+              rightActions={
+                <button className="icon-btn" onClick={(e) => { e.stopPropagation(); openCreate(group); }} aria-label={`Add ${group}`}>
+                  <PlusIcon />
+                </button>
+              }
+            >
+              {grouped[group].length === 0 ? (
+                <div className="text-neutral-500 text-sm">No exercises in {group} yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {grouped[group].map(ex => (
+                    <div key={ex.id}
+                         className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2">
+                      <button
+                        className="text-left text-body underline decoration-brand-accent underline-offset-2"
+                        onClick={() => (isSelectMode ? pickExistingForDay(ex.id) : openEdit(ex))}
+                      >
+                        {ex.name}
                       </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))
+                      {!isSelectMode && (
+                        <button className="icon-btn" onClick={() => removeExercise(ex.id)} aria-label="Delete">
+                          <TrashIcon />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Accordion>
+          ))}
+        </div>
       )}
 
       {/* Modal for create/edit */}
