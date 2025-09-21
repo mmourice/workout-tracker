@@ -6,14 +6,14 @@ export function TrashIcon() {
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
-      strokeWidth={1.5}
+      strokeWidth={2}
       stroke="currentColor"
       className="h-5 w-5"
     >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M6 7.5h12m-9 3v6m6-6v6M9 4.5h6a.75.75 0 01.75.75V6H8.25v-.75c0-.414.336-.75.75-.75zM4.5 6h15a.75.75 0 01.75.75v.75a.75.75 0 01-.75.75H4.5a.75.75 0 01-.75-.75v-.75a.75.75 0 01.75-.75zM6.75 9h10.5v10.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V9z"
+        d="M6 7h12M9 7V4h6v3m2 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7h10z"
       />
     </svg>
   );
