@@ -1,133 +1,183 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store.jsx";
-import { PlusIcon, TrashIcon } from "../Icons.jsx";
-import RestTimer from "../components/RestTimer.jsx";
+import { TrashIcon, PlusIcon } from "../Icons.jsx";
 
-const UnitField = ({ value, onChange, placeholder, unit = "kg" }) => (
-  <div className="unit-wrap">
-    <input
-      type="number"
-      value={value}
-      onChange={onChange}
-      inputMode="decimal"
-      placeholder={placeholder}
-      className="w-full rounded-card bg-brand-input px-3 pr-12"
-    />
-    <span>{unit}</span>
-  </div>
-);
+const fmt = (s) => {
+  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  const sec = Math.floor(s % 60).toString().padStart(2, "0");
+  return `${m}:${sec}`;
+};
 
 export default function Session() {
-  const { state, exerciseMap, buildSessionForDay, saveSession } = useStore();
-  const [selectedDayId, setSelectedDayId] = useState(state.plan.days[0]?.id || "");
-  const [session, setSession] = useState(null);
-  const [kicks, setKicks] = useState({});
+  const { state, exerciseMap, findLastExerciseLog, startNewSession, saveCurrentSession, updateSessionEntry, clearSessionForDay } = useStore();
 
+  // selected day tab (chip)
+  const [dayId, setDayId] = useState(state.plan.days[0]?.id || "");
+  const day = useMemo(() => state.plan.days.find((d) => d.id === dayId) || state.plan.days[0], [state.plan.days, dayId]);
+
+  // in-memory timers per exerciseId
+  const [timers, setTimers] = useState({}); // { [exerciseId]: secondsRemaining }
+  const [tick, setTick] = useState(0);
+
+  // build or rebuild the session whenever day changes
   useEffect(() => {
-    setSession(buildSessionForDay(selectedDayId));
-    setKicks({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDayId, state.logs]);
+    if (!day) return;
+    startNewSession(day.id);
+  }, [day?.id, startNewSession]);
 
-  if (!session) return null;
-  const bump = (id) => setKicks(m => ({ ...m, [id]: (m[id] || 0) + 1 }));
-  const units = state.units;
+  // simple 1s heartbeat for timers
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    setTimers((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        if (next[k] > 0) next[k] -= 1;
+      });
+      return next;
+    });
+  }, [tick]);
 
-  const addSet = (exId) => setSession(s => {
-    const c = structuredClone(s);
-    const e = c.entries.find(x => x.exerciseId === exId);
-    if (!e) return s;
-    const last = e.sets[e.sets.length - 1] || { weight: "0", reps: "10" };
-    e.sets.push({ weight: last.weight, reps: last.reps });
-    return c;
-  });
-  const delSet = (exId, i) => setSession(s => {
-    const c = structuredClone(s);
-    const e = c.entries.find(x => x.exerciseId === exId);
-    if (!e) return s;
-    e.sets.splice(i, 1);
-    if (!e.sets.length) e.sets.push({ weight: "0", reps: "10" });
-    return c;
-  });
-  const removeExerciseFromSession = (exId) =>
-    setSession(s => ({ ...s, entries: s.entries.filter(e => e.exerciseId !== exId) }));
+  if (!day) return <div className="muted">Create a plan day first.</div>;
 
-  const onSave = () => {
-    saveSession(session);
-    setSession(buildSessionForDay(selectedDayId));
-    alert("Session saved!");
+  const chips = [
+    { id: state.plan.days.find(d => /upper a/i.test(d.name))?.id, label: "Upper A" },
+    { id: state.plan.days.find(d => /upper b/i.test(d.name))?.id, label: "Upper B" },
+    { id: state.plan.days.find(d => /lower/i.test(d.name))?.id, label: "Lower" },
+    { id: state.plan.days.find(d => /full/i.test(d.name))?.id, label: "Full Body" },
+  ].filter(Boolean);
+
+  const session = state._session; // current session lives in store
+
+  const unit = state.units || "kg";
+
+  const onChangeWeight = (exerciseId, setIdx, val) => {
+    updateSessionEntry(exerciseId, setIdx, { weight: Number(val) || 0 });
+  };
+  const onChangeReps = (exerciseId, setIdx, val) => {
+    updateSessionEntry(exerciseId, setIdx, { reps: Number(val) || 0 });
+  };
+
+  const startTimer = (exerciseId, seconds = 90) => {
+    setTimers((t) => ({ ...t, [exerciseId]: seconds }));
+  };
+  const resetCard = (exerciseId) => {
+    const ex = exerciseMap[exerciseId];
+    const last = findLastExerciseLog(exerciseId);
+    const sets = ex?.sets || 3;
+    for (let i = 0; i < sets; i++) {
+      updateSessionEntry(exerciseId, i, {
+        weight: last?.weights?.[i] ?? 0,
+        reps: last?.reps?.[i] ?? ex?.reps ?? 10,
+      });
+    }
+  };
+  const removeCard = (exerciseId) => {
+    // clears just this exercise from the session
+    clearSessionForDay(day.id, exerciseId);
   };
 
   return (
     <div className="space-y-5">
-      {/* Tabs are defined in layout; here only day pills + actions */}
+      {/* Day chips */}
       <div className="space-y-2">
         <div className="text-label">Pick day</div>
-        <div className="tabs-row">
-          {state.plan.days.map(d => (
+        <div className="chips">
+          {chips.map((c) => (
             <button
-              key={d.id}
-              className={`rounded-button ${d.id === selectedDayId ? "is-active" : ""}`}
-              onClick={() => setSelectedDayId(d.id)}
+              key={c.id}
+              className={`chip ${day.id === c.id ? "chip--active" : "chip--idle"}`}
+              onClick={() => setDayId(c.id)}
             >
-              {d.name}
+              {c.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="tabs-row">
-        <button className="rounded-button" onClick={() => setSession(buildSessionForDay(selectedDayId))}>Copy last</button>
-        <button className="rounded-button" onClick={() => setSession(buildSessionForDay(selectedDayId))}>Clear</button>
-        <button className="rounded-button bg-brand-primary text-black" onClick={onSave}>Save Session</button>
+      {/* Actions */}
+      <div className="chips">
+        <button className="chip chip--idle" onClick={() => startNewSession(day.id, { copyLast: true })}>Copy last</button>
+        <button className="chip chip--idle" onClick={() => startNewSession(day.id, { copyLast: false })}>Clear</button>
+        <button className="cta" onClick={saveCurrentSession}>Save Session</button>
       </div>
 
-      {session.entries.map((en) => {
-        const ex = exerciseMap[en.exerciseId];
-        if (!ex) return null;
-        return (
-          <div key={en.exerciseId} className="rounded-card p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="font-extrabold leading-snug">
-                {ex.link ? (
-                  <a className="underline decoration-[var(--accent)] underline-offset-2"
-                     href={ex.link} target="_blank" rel="noopener noreferrer">
-                    {ex.name}
-                  </a>
-                ) : (
-                  <span>{ex.name}</span>
-                )}
-              </div>
-              <div className="card-actions">
-                <RestTimer seconds={90} kick={kicks[en.exerciseId] || 0} />
-                <button className="icon-btn ghost" title="Add set" onClick={() => addSet(en.exerciseId)}><PlusIcon/></button>
-                <button className="icon-btn ghost" title="Remove exercise" onClick={() => removeExerciseFromSession(en.exerciseId)}><TrashIcon/></button>
-              </div>
-            </div>
+      {/* Exercise cards */}
+      {!day.exerciseIds.length ? (
+        <div className="muted">No exercises in this day. Go to <b>Plan</b> to add some.</div>
+      ) : (
+        day.exerciseIds.map((eid) => {
+          const ex = exerciseMap[eid];
+          const entry = session?.entries?.find((en) => en.exerciseId === eid);
+          if (!ex || !entry) return null;
 
-            <div className="grid-sets">
-              {en.sets.map((s, i) => (
-                <div key={i} className="set-card">
-                  <div className="corner-x"><button onClick={() => delSet(en.exerciseId, i)} aria-label="Remove set">✕</button></div>
-                  <div className="text-label mb-2">Set {i+1}</div>
-                  <div className="row">
-                    <UnitField
-                      value={s.weight}
-                      onChange={(e)=>{ s.weight=e.target.value; bump(en.exerciseId); setSession({...session}); }}
-                      placeholder="0" unit={units}
-                    />
-                    <UnitField
-                      value={s.reps}
-                      onChange={(e)=>{ s.reps=e.target.value; bump(en.exerciseId); setSession({...session}); }}
-                      placeholder="10" unit="reps"
-                    />
+          const t = timers[eid] ?? 0;
+
+          return (
+            <div key={eid} className="rounded-card p-4 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <a
+                  className="card-title linkable"
+                  href={ex.link || "#"}
+                  target={ex.link ? "_blank" : "_self"}
+                  rel="noreferrer"
+                  onClick={(e) => { if (!ex.link) e.preventDefault(); }}
+                >
+                  {ex.name}
+                </a>
+
+                <div className="chips">
+                  <div className="timer-pill" onClick={() => startTimer(eid)}>
+                    <span role="img" aria-label="timer">⏱️</span>
+                    <span className="mono">{fmt(t || 90)}</span>
                   </div>
+                  <button className="chip chip--idle" onClick={() => resetCard(eid)}>Reset</button>
+                  <button className="icon ghost" onClick={() => updateSessionEntry(eid, entry.weights.length, { addSet: true })} title="Add set">
+                    <PlusIcon />
+                  </button>
+                  <button className="icon ghost" onClick={() => removeCard(eid)} title="Remove card">
+                    <TrashIcon />
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {/* 2-column sets */}
+              <div className="grid-sets">
+                {entry.weights.map((w, i) => (
+                  <div key={i} className="set-card">
+                    <div className="text-label mb-2">Set {i + 1}</div>
+                    <button className="close-x" onClick={() => updateSessionEntry(eid, i, { deleteSet: true })}>×</button>
+                    <div className="row">
+                      <div className="input-wrap">
+                        <input
+                          inputMode="decimal"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={String(w ?? "")}
+                          onChange={(e) => onChangeWeight(eid, i, e.target.value)}
+                        />
+                        <span className="suffix">{unit}</span>
+                      </div>
+                      <div className="input-wrap">
+                        <input
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          placeholder="0"
+                          value={String(entry.reps?.[i] ?? "")}
+                          onChange={(e) => onChangeReps(eid, i, e.target.value)}
+                        />
+                        <span className="suffix">reps</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }
