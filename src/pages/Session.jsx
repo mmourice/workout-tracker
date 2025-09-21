@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useStore } from "../store.jsx";
-import { PlusIcon, TrashIcon, ExternalIcon } from "../Icons.jsx";
+import { PlusIcon, TrashIcon } from "../Icons.jsx";
+import RestTimer from "../components/RestTimer.jsx";
 
 const UnitField = ({ value, onChange, placeholder, unit = "kg" }) => (
   <div className="relative min-w-0">
@@ -22,12 +23,20 @@ export default function Session() {
   const [selectedDayId, setSelectedDayId] = useState(state.plan.days[0]?.id || "");
   const [session, setSession] = useState(null);
 
-  // Build (or rebuild) session when day changes
-  useEffect(() => {
-    setSession(buildSessionForDay(selectedDayId));
-  }, [selectedDayId, state.logs]); // when you save, a new log appears; next open will prefill
+  // kick counters for timers per exercise
+  const [kicks, setKicks] = useState({}); // { exerciseId: number }
 
-  const dayTabs = state.plan.days;
+  useEffect(() => {
+    const s = buildSessionForDay(selectedDayId);
+    setSession(s);
+    setKicks({}); // reset kicks when switching day
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDayId, state.logs]);
+
+  if (!session) return null;
+
+  const bumpKick = (exerciseId) =>
+    setKicks((m) => ({ ...m, [exerciseId]: (m[exerciseId] || 0) + 1 }));
 
   const onAddSet = (exId) => {
     setSession(s => {
@@ -57,6 +66,7 @@ export default function Session() {
       entry.sets[idx].weight = v;
       return c;
     });
+    bumpKick(exId); // auto-start timer
   };
   const onChangeR = (exId, idx, v) => {
     setSession(s => {
@@ -66,19 +76,16 @@ export default function Session() {
       entry.sets[idx].reps = v;
       return c;
     });
+    bumpKick(exId); // auto-start timer
   };
 
   const onSave = () => {
-    if (!session) return;
     saveSession(session);
-    // Rebuild with last values copied
-    setSession(buildSessionForDay(selectedDayId));
+    setSession(buildSessionForDay(selectedDayId)); // refresh with last values
     alert("Session saved!");
   };
 
   const units = state.units;
-
-  if (!session) return null;
 
   return (
     <div className="space-y-4">
@@ -86,7 +93,7 @@ export default function Session() {
       <div className="space-y-2">
         <div className="text-brand-accent text-label">Pick day</div>
         <div className="flex flex-wrap gap-2">
-          {dayTabs.map(d => (
+          {state.plan.days.map(d => (
             <button
               key={d.id}
               className={`px-4 py-2 rounded-button border ${d.id === selectedDayId ? "bg-brand-primary text-black border-transparent" : "border-brand-border"}`}
@@ -98,7 +105,7 @@ export default function Session() {
         </div>
       </div>
 
-      {/* Save */}
+      {/* Actions */}
       <div className="flex flex-wrap gap-2">
         <button className="px-4 py-2 rounded-button border border-brand-border"
                 onClick={() => setSession(buildSessionForDay(selectedDayId))}>
@@ -113,31 +120,40 @@ export default function Session() {
         </button>
       </div>
 
-      {/* Exercises */}
+      {/* Exercise cards */}
       {session.entries.map((en) => {
         const ex = exerciseMap[en.exerciseId];
         if (!ex) return null;
+        const kick = kicks[en.exerciseId] || 0;
+
         return (
           <div key={en.exerciseId} className="rounded-card border border-brand-border bg-brand-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <a
-                className="text-h3 underline decoration-brand-accent underline-offset-2"
-                href={ex.link || "#"}
-                target={ex.link ? "_blank" : "_self"}
-                rel="noreferrer"
-              >
-                {ex.name} <span className="text-brand-accent">({ex.sets} x {ex.reps})</span>
-              </a>
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-bold leading-snug">
+                <a
+                  className="underline decoration-brand-accent underline-offset-2"
+                  href={ex.link || "#"}
+                  target={ex.link ? "_blank" : "_self"}
+                  rel="noreferrer"
+                >
+                  {ex.name} <span className="text-brand-accent">({ex.sets} x {ex.reps})</span>
+                </a>
+              </div>
               <div className="flex items-center gap-2">
+                <RestTimer seconds={90} kick={kick} />
                 <button className="icon-btn" onClick={() => onAddSet(en.exerciseId)} aria-label="Add set"><PlusIcon /></button>
-                <button className="icon-btn" onClick={() => {
-                  // remove whole exercise from the session view
-                  setSession(s => ({ ...s, entries: s.entries.filter(e => e.exerciseId !== en.exerciseId) }));
-                }} aria-label="Remove exercise"><TrashIcon /></button>
+                <button
+                  className="icon-btn"
+                  onClick={() => setSession(s => ({ ...s, entries: s.entries.filter(e => e.exerciseId !== en.exerciseId) }))}
+                  aria-label="Remove exercise"
+                >
+                  <TrashIcon />
+                </button>
               </div>
             </div>
 
-            {/* Sets */}
+            {/* Sets grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {en.sets.map((s, idx) => (
                 <div key={idx} className="relative rounded-card border border-brand-border bg-brand-input p-3">
