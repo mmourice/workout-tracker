@@ -3,87 +3,80 @@ import { useStore } from "../store.jsx";
 
 export default function History() {
   const { state, exerciseMap } = useStore();
+  const allExercises = state.exercises;
 
-  // default to first exercise, if any
-  const [exId, setExId] = useState(state.exercises[0]?.id || "");
+  const [exId, setExId] = useState(allExercises[0]?.id || "");
+  const [showLastOnly, setShowLastOnly] = useState(false);
 
-  // Build rows: [{ date: Date, sets: [{w, r}], note? }]
   const rows = useMemo(() => {
     if (!exId) return [];
     const out = [];
     for (const log of state.logs) {
       const entry = log.entries.find((e) => e.exerciseId === exId);
-      if (!entry) continue;
-      const sets = (entry.weights || []).map((w, i) => ({
-        w,
-        r: entry.reps?.[i] ?? "",
-      }));
-      out.push({ date: new Date(log.dateISO), sets });
+      if (entry) out.push({ date: new Date(log.dateISO), weights: entry.weights || [], reps: entry.reps || [] });
     }
-    // oldest → newest
-    return out.sort((a, b) => a.date - b.date);
-  }, [state.logs, exId]);
+    out.sort((a, b) => a.date - b.date);
+    return showLastOnly ? out.slice(-1) : out;
+  }, [state.logs, exId, showLastOnly]);
 
-  const currentName = exerciseMap[exId]?.name || "(select an exercise)";
+  const units = state.units;
 
   return (
-    <div className="space-y-4">
-      {/* Exercise picker */}
-      <div>
-        <div className="text-label text-brand-accent mb-2">Exercise</div>
-        <div className="flex flex-wrap gap-2">
-          {state.exercises.length === 0 ? (
-            <div className="text-neutral-400">No exercises yet.</div>
-          ) : (
-            state.exercises.map((e) => (
-              <button
-                key={e.id}
-                onClick={() => setExId(e.id)}
-                className={
-                  "px-3 py-1 rounded-chip border " +
-                  (e.id === exId
-                    ? "bg-brand-primary text-black border-brand-primary"
-                    : "bg-transparent text-white border-brand-border")
-                }
-              >
-                <span className="text-label font-mont">{e.name}</span>
-              </button>
-            ))
-          )}
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <div className="text-label">Exercise</div>
+        <div className="tabs-row">
+          {allExercises.map((e) => (
+            <button
+              key={e.id}
+              className={`rounded-button ${exId === e.id ? "is-active" : ""}`}
+              onClick={() => setExId(e.id)}
+            >
+              {e.name}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Title */}
-      <h2 className="text-h2 font-mont font-bold">{currentName}</h2>
+      <div className="tabs-row">
+        <button
+          className={`rounded-button ${showLastOnly ? "is-active" : ""}`}
+          onClick={() => setShowLastOnly((v) => !v)}
+        >
+          {showLastOnly ? "Showing last" : "Show last only"}
+        </button>
+      </div>
 
-      {/* Rows */}
-      {rows.length === 0 ? (
-        <div className="text-neutral-400">
-          No logs yet for this exercise. Go to <b>Session</b> and save a
-          workout.
-        </div>
+      {!rows.length ? (
+        <div className="muted">No logs yet for this exercise.</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {rows.map((r, idx) => (
-            <div
-              key={idx}
-              className="rounded-card border border-brand-border bg-brand-card p-3"
-            >
-              <div className="mb-2 opacity-80">
-                {r.date.toLocaleDateString()}
+            <div key={idx} className="rounded-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="font-extrabold">{r.date.toLocaleDateString()}</div>
+                <div className="muted text-sm">{exerciseMap[exId]?.name}</div>
               </div>
 
-              {/* Sets: “weight × reps” chips */}
-              <div className="flex flex-wrap gap-2">
-                {r.sets.map((s, i) => (
-                  <div
-                    key={i}
-                    className="rounded-card border border-brand-border bg-brand-input px-3 py-1"
-                  >
-                    Set {i + 1}: {s.w}
-                    {typeof s.r === "number" || s.r
-                      ? ` × ${s.r}`
-                      : ""}
+              {/* Sets grid mirror (2 columns) */}
+              <div className="grid-sets">
+                {r.weights.map((w, i) => (
+                  <div key={i} className="set-card">
+                    <div className="text-label mb-2">Set {i + 1}</div>
+                    <div className="row">
+                      <div className="unit-wrap">
+                        <input disabled value={String(w)} className="w-full rounded-card bg-brand-input px-3 pr-12" />
+                        <span>{units}</span>
+                      </div>
+                      <div className="unit-wrap">
+                        <input
+                          disabled
+                          value={String((r.reps && r.reps[i]) ?? "")}
+                          className="w-full rounded-card bg-brand-input px-3 pr-12"
+                        />
+                        <span>reps</span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
