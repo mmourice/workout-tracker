@@ -5,3 +5,17 @@
 :root { color-scheme: dark; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.icon-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:8px; border:1px solid var(--brand-border, #2a2a2a);
+  border-radius:14px; background:transparent; color:#fff;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.06); }
+
+.timer-chip { display:flex; gap:8px; align-items:center; }
+.chip-btn {
+  padding:6px 10px; border:1px solid var(--brand-border, #2a2a2a);
+  border-radius:14px; background:transparent; color:#fff; font-size:12px;
+}
+.chip-btn.subtle { opacity:.8; }
+.chip-btn:hover { background: rgba(255,255,255,0.06); }
