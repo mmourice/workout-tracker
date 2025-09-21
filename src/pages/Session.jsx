@@ -4,15 +4,16 @@ import { PlusIcon, TrashIcon } from "../Icons.jsx";
 import RestTimer from "../components/RestTimer.jsx";
 
 const UnitField = ({ value, onChange, placeholder, unit = "kg" }) => (
-  <div className="relative min-w-0 flex-1">
+  <div className="unit-wrap">
     <input
+      type="number"
       value={value}
       onChange={onChange}
       inputMode="decimal"
       placeholder={placeholder}
-      className="w-full rounded-card border border-brand-border bg-brand-input px-3 pr-14 text-base text-white"
+      className="w-full rounded-card bg-brand-input px-3 pr-12"
     />
-    <span className="absolute right-3 top-1/2 -translate-y-1/2">{unit}</span>
+    <span>{unit}</span>
   </div>
 );
 
@@ -20,7 +21,7 @@ export default function Session() {
   const { state, exerciseMap, buildSessionForDay, saveSession } = useStore();
   const [selectedDayId, setSelectedDayId] = useState(state.plan.days[0]?.id || "");
   const [session, setSession] = useState(null);
-  const [kicks, setKicks] = useState({});
+  const [kicks, setKicks] = useState({}); // bump to start timer
 
   useEffect(() => {
     setSession(buildSessionForDay(selectedDayId));
@@ -32,22 +33,26 @@ export default function Session() {
   const bump = (id) => setKicks(m => ({ ...m, [id]: (m[id] || 0) + 1 }));
   const units = state.units;
 
-  const setAdd = (id) => setSession(s => {
+  const addSet = (exId) => setSession(s => {
     const c = structuredClone(s);
-    const e = c.entries.find(x => x.exerciseId === id);
+    const e = c.entries.find(x => x.exerciseId === exId);
     if (!e) return s;
     const last = e.sets[e.sets.length - 1] || { weight: "0", reps: "10" };
     e.sets.push({ weight: last.weight, reps: last.reps });
     return c;
   });
-  const setDel = (id, i) => setSession(s => {
+
+  const delSet = (exId, i) => setSession(s => {
     const c = structuredClone(s);
-    const e = c.entries.find(x => x.exerciseId === id);
+    const e = c.entries.find(x => x.exerciseId === exId);
     if (!e) return s;
     e.sets.splice(i, 1);
     if (!e.sets.length) e.sets.push({ weight: "0", reps: "10" });
     return c;
   });
+
+  const removeExerciseFromSession = (exId) =>
+    setSession(s => ({ ...s, entries: s.entries.filter(e => e.exerciseId !== exId) }));
 
   const onSave = () => {
     saveSession(session);
@@ -56,10 +61,10 @@ export default function Session() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Day pills */}
+    <div className="space-y-5">
+      {/* Day selector */}
       <div className="space-y-2">
-        <div className="text-brand-accent text-label">Pick day</div>
+        <div className="text-label">Pick day</div>
         <div className="flex flex-wrap gap-8">
           {state.plan.days.map(d => (
             <button
@@ -80,17 +85,17 @@ export default function Session() {
         <button className="rounded-button bg-brand-primary text-black" onClick={onSave}>Save Session</button>
       </div>
 
-      {/* Exercise cards */}
+      {/* Exercises */}
       {session.entries.map((en) => {
         const ex = exerciseMap[en.exerciseId];
         if (!ex) return null;
         return (
-          <div key={en.exerciseId} className="rounded-card border border-brand-border bg-brand-card p-4 space-y-3">
-            {/* Header */}
+          <div key={en.exerciseId} className="rounded-card p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="font-extrabold leading-snug">
                 {ex.link ? (
-                  <a href={ex.link} target="_blank" rel="noopener noreferrer" className="underline decoration-brand-accent underline-offset-2">
+                  <a className="underline decoration-[var(--accent)] underline-offset-2"
+                     href={ex.link} target="_blank" rel="noopener noreferrer">
                     {ex.name}
                   </a>
                 ) : (
@@ -99,25 +104,27 @@ export default function Session() {
               </div>
               <div className="card-actions">
                 <RestTimer seconds={90} kick={kicks[en.exerciseId] || 0} />
-                <button className="icon-btn ghost" title="Add set" onClick={() => setAdd(en.exerciseId)}><PlusIcon /></button>
-                <button className="icon-btn ghost" title="Remove exercise"
-                        onClick={() => setSession(s => ({ ...s, entries: s.entries.filter(e => e.exerciseId !== en.exerciseId) }))}>
-                  <TrashIcon />
-                </button>
+                <button className="icon-btn ghost" title="Add set" onClick={() => addSet(en.exerciseId)}><PlusIcon/></button>
+                <button className="icon-btn ghost" title="Remove exercise" onClick={() => removeExerciseFromSession(en.exerciseId)}><TrashIcon/></button>
               </div>
             </div>
 
-            {/* Sets grid (always 2 columns) */}
             <div className="grid-sets">
               {en.sets.map((s, i) => (
                 <div key={i} className="set-card">
-                  <div className="corner-x">
-                    <button onClick={() => setDel(en.exerciseId, i)} aria-label="Remove set">✕</button>
-                  </div>
-                  <div className="text-label mb-2">Set {i + 1}</div>
+                  <div className="corner-x"><button onClick={() => delSet(en.exerciseId, i)} aria-label="Remove set">✕</button></div>
+                  <div className="text-label mb-2">Set {i+1}</div>
                   <div className="row">
-                    <UnitField value={s.weight} onChange={(e)=>{ s.weight=e.target.value; bump(en.exerciseId); setSession({...session}); }} placeholder="0" unit={units} />
-                    <UnitField value={s.reps}   onChange={(e)=>{ s.reps=e.target.value;   bump(en.exerciseId); setSession({...session}); }} placeholder="10" unit="reps" />
+                    <UnitField
+                      value={s.weight}
+                      onChange={(e)=>{ s.weight=e.target.value; bump(en.exerciseId); setSession({...session}); }}
+                      placeholder="0" unit={units}
+                    />
+                    <UnitField
+                      value={s.reps}
+                      onChange={(e)=>{ s.reps=e.target.value; bump(en.exerciseId); setSession({...session}); }}
+                      placeholder="10" unit="reps"
+                    />
                   </div>
                 </div>
               ))}
