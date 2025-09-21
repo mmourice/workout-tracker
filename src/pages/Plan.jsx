@@ -1,104 +1,112 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../store.jsx";
 import { TrashIcon, PlusIcon } from "../Icons.jsx";
-import { useNavigate } from "react-router-dom";
 
 export default function Plan() {
   const {
     state,
-    updateDay,
-    addDay,
-    removeDay,
-    removeExerciseFromDay,
     exerciseMap,
+    addDay,
+    updateDay,
+    removeDay,
+    addExerciseToDay,
+    removeExerciseFromDay,
   } = useStore();
+  const nav = useNavigate();
 
-  const navigate = useNavigate();
+  const handleAddDay = () => {
+    const d = addDay(); // assume store returns the new day
+    if (!d) return;
+  };
+
+  const goAddExercises = (dayId) => {
+    nav(`/exercises?addToDay=${encodeURIComponent(dayId)}`);
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Add Day */}
-      <button
-        onClick={addDay}
-        className="px-4 py-2 rounded-button bg-brand-primary text-black font-mont flex items-center gap-2"
-      >
-        <span className="text-lg leading-none">＋</span>
-        <span>Add Day</span>
-      </button>
+    <div className="space-y-5">
+      <div className="tabs-row">
+        <button className="rounded-button bg-brand-primary text-black" onClick={handleAddDay}>
+          <PlusIcon /> <span style={{ marginLeft: 8, fontWeight: 800 }}>Add Day</span>
+        </button>
+      </div>
 
-      {/* Days */}
-      {state.plan.days.map((d) => (
-        <div
-          key={d.id}
-          className="rounded-card border border-brand-border bg-brand-card p-4 space-y-4"
-        >
-          {/* Day name */}
-          <div>
-            <label className="block text-label text-brand-accent mb-1">
-              Day name
-            </label>
-            <input
-              value={d.name}
-              onChange={(e) => updateDay(d.id, { name: e.target.value })}
-              className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-            />
-          </div>
+      {!state.plan.days.length ? (
+        <div className="muted">No days yet. Tap <b>Add Day</b> to start building your plan.</div>
+      ) : (
+        state.plan.days.map((d) => (
+          <div key={d.id} className="rounded-card p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <label className="block text-label mb-1">Day name</label>
+                <input
+                  className="w-full rounded-card bg-brand-input px-3 py-2"
+                  value={d.name}
+                  onChange={(e) => updateDay(d.id, { name: e.target.value })}
+                  placeholder="Upper A"
+                />
+              </div>
 
-          {/* Current exercises (vertical list) */}
-          <div>
-            <div className="text-label text-brand-accent mb-2">Exercises</div>
-            <div className="space-y-2">
-              {d.exerciseIds.length === 0 ? (
-                <div className="text-neutral-400">
-                  No exercises yet. Add some below.
+              <button
+                className="icon-btn ghost"
+                title="Delete day"
+                onClick={() => removeDay(d.id)}
+                aria-label="Delete day"
+              >
+                <TrashIcon />
+              </button>
+            </div>
+
+            <div>
+              <div className="text-label mb-2">Exercises</div>
+
+              {/* Current day exercises as flat rows */}
+              {d.exerciseIds.length ? (
+                <div className="space-y-2">
+                  {d.exerciseIds.map((eid) => {
+                    const ex = exerciseMap[eid];
+                    return (
+                      <div key={eid} className="group-row">
+                        <div className="title" style={{ fontSize: 18 }}>
+                          {ex?.name || "(missing exercise)"}
+                          {ex?.group ? (
+                            <span className="muted text-xs" style={{ marginLeft: 8 }}>
+                              · {ex.group}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="right">
+                          <button
+                            className="icon-btn ghost"
+                            title="Remove from day"
+                            onClick={() => removeExerciseFromDay(d.id, eid)}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                d.exerciseIds.map((eid) => (
-                  <div
-                    key={eid}
-                    className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2"
-                  >
-                    <span className="text-body font-mont truncate">
-                      {exerciseMap[eid]?.name || "(missing)"}
-                    </span>
-                    <button
-                      onClick={() => removeExerciseFromDay(d.id, eid)}
-                      className="px-2"
-                      aria-label="Remove exercise from day"
-                      title="Remove"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                ))
+                <div className="muted">No exercises in this day yet.</div>
               )}
+
+              {/* Add exercise CTA (navigates to Exercises in select mode) */}
+              <div className="mt-3">
+                <button
+                  className="rounded-button"
+                  onClick={() => goAddExercises(d.id)}
+                  title="Add exercise"
+                >
+                  <PlusIcon /> <span style={{ marginLeft: 6 }}>Add exercise</span>
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Add exercise -> navigates to Exercises select mode */}
-          <div>
-            <button
-              onClick={() => navigate(`/exercises?addToDay=${encodeURIComponent(d.id)}`)}
-              className="w-full text-left px-3 py-2 rounded-button border border-brand-border hover:bg-[#181818] flex items-center gap-2"
-            >
-              <span className="text-lg leading-none">＋</span>
-              <span>Add exercise</span>
-            </button>
-          </div>
-
-          {/* Delete day */}
-          <div className="flex justify-end">
-            <button
-              onClick={() => removeDay(d.id)}
-              className="px-2"
-              aria-label="Delete day"
-              title="Delete day"
-            >
-              <TrashIcon />
-            </button>
-          </div>
-        </div>
-      ))}
+        ))
+      )}
     </div>
   );
 }
