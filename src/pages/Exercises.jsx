@@ -1,35 +1,32 @@
 import React, { useMemo, useState } from "react";
 import { useStore } from "../store.jsx";
 import { TrashIcon, PlusIcon } from "../Icons.jsx";
+import Modal from "../components/Modal.jsx";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core", "Cardio", "Other"];
-
-function useQuery() {
-  const { search } = useLocation();
-  return new URLSearchParams(search);
-}
+const useQuery = () => new URLSearchParams(useLocation().search);
 
 export default function Exercises() {
   const {
-    state,
-    addExercise,
-    updateExercise,
-    removeExercise,
-    addExerciseToDay,
+    state, GROUPS,
+    addExercise, updateExercise, removeExercise,
+    addExerciseToDay
   } = useStore();
 
   const q = useQuery();
   const navigate = useNavigate();
-  const addToDay = q.get("addToDay");           // select-mode if present
+  const addToDay = q.get("addToDay");
   const isSelectMode = Boolean(addToDay);
 
-  // which group currently has the inline "add" form expanded?
-  const [openGroup, setOpenGroup] = useState(null);
-  // simple local form state for the new exercise
+  // search
+  const [search, setSearch] = useState("");
+
+  // modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [targetGroup, setTargetGroup] = useState("Other");
   const [form, setForm] = useState({ name: "", sets: "3", reps: "10", link: "" });
 
-  // group existing exercises
   const grouped = useMemo(() => {
     const map = Object.fromEntries(GROUPS.map(g => [g, []]));
     for (const ex of state.exercises) {
@@ -37,270 +34,220 @@ export default function Exercises() {
       map[g].push(ex);
     }
     return map;
-  }, [state.exercises]);
+  }, [state.exercises, GROUPS]);
 
-  // create a new exercise inside a group; if select-mode, also add to day and go back
-  const createInGroup = async (group) => {
+  const openCreate = (group) => {
+    setEditing(null);
+    setTargetGroup(group);
+    setForm({ name: "", sets: "3", reps: "10", link: "" });
+    setModalOpen(true);
+  };
+
+  const openEdit = (ex) => {
+    setEditing(ex);
+    setTargetGroup(ex.group || "Other");
+    setForm({
+      name: ex.name || "",
+      sets: String(ex.sets ?? 3),
+      reps: String(ex.reps ?? 10),
+      link: ex.link || "",
+    });
+    setModalOpen(true);
+  };
+
+  const saveCreate = () => {
     if (!form.name.trim()) return alert("Please enter a name.");
-    // 1) make a new exercise (addExercise adds a default at the end)
     addExercise();
-    // 2) grab the freshly-added exercise id (last item)
     const newEx = state.exercises[state.exercises.length - 1];
     if (!newEx) return;
-
-    // 3) patch it with your form + group
     updateExercise(newEx.id, {
       name: form.name.trim(),
+      group: targetGroup,
       sets: Math.max(1, Number(form.sets || 1)),
       reps: Math.max(1, Number(form.reps || 1)),
-      link: form.link?.trim() || "",
-      group,
+      link: form.link.trim(),
     });
-
-    // 4) if we came from Plan in select-mode, attach to that day & go back
     if (isSelectMode && addToDay) {
       addExerciseToDay(addToDay, newEx.id);
+      setModalOpen(false);
       navigate("/plan");
       return;
     }
-
-    // reset the inline form
-    setForm({ name: "", sets: "3", reps: "10", link: "" });
-    setOpenGroup(null);
+    setModalOpen(false);
   };
 
-  const handlePickExisting = (exId) => {
+  const saveEdit = () => {
+    if (!editing) return;
+    updateExercise(editing.id, {
+      name: form.name.trim(),
+      group: targetGroup,
+      sets: Math.max(1, Number(form.sets || 1)),
+      reps: Math.max(1, Number(form.reps || 1)),
+      link: form.link.trim(),
+    });
+    setModalOpen(false);
+  };
+
+  const pickExistingForDay = (exId) => {
     if (!isSelectMode) return;
     addExerciseToDay(addToDay, exId);
     navigate("/plan");
   };
 
+  const filtered = search.trim()
+    ? state.exercises.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+    : null;
+
   return (
     <div className="space-y-5">
-      {/* Top actions (hidden in select-mode) */}
-      {!isSelectMode && (
-        <div className="flex items-center justify-between">
-          <div className="text-neutral-400 text-sm">
-            Manage exercises by muscle group
-          </div>
-          {/* Quick add anywhere (defaults to Other) */}
-          <button
-            onClick={() => { setOpenGroup("Other"); }}
-            className="px-3 py-2 rounded-button bg-brand-primary text-black flex items-center gap-2"
-            title="Add exercise"
-          >
-            <PlusIcon />
-            <span>Add Exercise</span>
+      {/* Subtitle + search + main Add */}
+      <div className="space-y-2">
+        <div className="text-neutral-400 text-sm">Manage exercises by muscle group</div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search exercises..."
+          className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
+        />
+        {!isSelectMode && (
+          <button className="px-4 py-2 rounded-button bg-brand-primary text-black flex items-center gap-2"
+                  onClick={() => openCreate("Other")}>
+            <PlusIcon /> <span>Add Exercise</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Select-mode banner */}
-      {isSelectMode && (
-        <div className="rounded-card border border-brand-border bg-[#181818] px-3 py-2 text-label">
-          Select an exercise or press + to create a new one in that group.
-        </div>
-      )}
-
-      {/* Category sections */}
-      {GROUPS.map((group) => (
-        <div key={group} className="space-y-3">
-          {/* Header row with + on the right */}
-          <div className="flex items-center justify-between">
-            <h3 className="text-h2 font-mont font-bold">{group}</h3>
-            <button
-              onClick={() => {
-                setOpenGroup(openGroup === group ? null : group);
-                setForm({ name: "", sets: "3", reps: "10", link: "" });
-              }}
-              className="px-2 py-1 rounded-button hover:bg-[#181818]"
-              aria-label={`Add ${group} exercise`}
-              title={`Add ${group} exercise`}
-            >
-              <PlusIcon />
-            </button>
-          </div>
-
-          {/* Inline add form (appears under header) */}
-          {openGroup === group && (
-            <div className="rounded-card border border-brand-border bg-brand-card p-4 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-label text-brand-accent mb-1">Name</label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                    placeholder={`e.g., ${group === "Chest" ? "Incline Chest Press" : "New Exercise"}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-label text-brand-accent mb-1">Sets</label>
-                  <input
-                    inputMode="numeric"
-                    value={form.sets}
-                    onChange={(e) => setForm((f) => ({ ...f, sets: e.target.value }))}
-                    className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                    placeholder="3"
-                  />
-                </div>
-                <div>
-                  <label className="block text-label text-brand-accent mb-1">Reps</label>
-                  <input
-                    inputMode="numeric"
-                    value={form.reps}
-                    onChange={(e) => setForm((f) => ({ ...f, reps: e.target.value }))}
-                    className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                    placeholder="10"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-label text-brand-accent mb-1">YouTube link (optional)</label>
-                <input
-                  value={form.link}
-                  onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))}
-                  className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => createInGroup(group)}
-                  className="px-4 py-2 rounded-button bg-brand-primary text-black"
-                >
-                  {isSelectMode ? "Create & Add to Day" : "Create Exercise"}
+      {/* Search results or grouped view */}
+      {filtered ? (
+        <div className="space-y-2">
+          {filtered.length === 0 ? (
+            <div className="text-neutral-500 text-sm">No matches.</div>
+          ) : filtered.map(ex => (
+            <div key={ex.id}
+                 className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2">
+              <button
+                className="text-left text-body underline decoration-brand-accent underline-offset-2"
+                onClick={() => (isSelectMode ? pickExistingForDay(ex.id) : openEdit(ex))}
+              >
+                {ex.name} <span className="text-xs opacity-60">({ex.group || "Other"})</span>
+              </button>
+              {!isSelectMode && (
+                <button className="icon-btn" onClick={() => removeExercise(ex.id)} aria-label="Delete">
+                  <TrashIcon />
                 </button>
-                <button
-                  onClick={() => setOpenGroup(null)}
-                  className="px-4 py-2 rounded-button border border-brand-border"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Existing exercises in this group */}
-          {grouped[group].length === 0 ? (
-            <div className="text-neutral-500 text-sm">No exercises in {group} yet.</div>
-          ) : (
-            <div className="space-y-3">
-              {grouped[group].map((ex) =>
-                isSelectMode ? (
-                  // SELECT MODE: each name is a button to add to day
-                  <button
-                    key={ex.id}
-                    onClick={() => handlePickExisting(ex.id)}
-                    className="w-full text-left px-3 py-3 rounded-button border border-brand-border hover:bg-[#181818] flex items-center gap-2"
-                  >
-                    <span className="text-lg leading-none">＋</span>
-                    <span className="text-body">{ex.name}</span>
-                  </button>
-                ) : (
-                  // EDIT MODE: full editable card
-                  <div
-                    key={ex.id}
-                    className="rounded-card border border-brand-border bg-brand-card p-4 space-y-3"
-                  >
-                    {/* Name */}
-                    <div>
-                      <label className="block text-label text-brand-accent mb-1">Name</label>
-                      <input
-                        value={ex.name}
-                        onChange={(e) => updateExercise(ex.id, { name: e.target.value })}
-                        className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                        placeholder="Exercise name"
-                      />
-                    </div>
-
-                    {/* Group / Sets / Reps */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-label text-brand-accent mb-1">Group</label>
-                        <select
-                          value={ex.group || "Other"}
-                          onChange={(e) => updateExercise(ex.id, { group: e.target.value })}
-                          className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                        >
-                          {GROUPS.map((g) => (
-                            <option key={g} value={g}>{g}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-label text-brand-accent mb-1">Sets</label>
-                        <input
-                          inputMode="numeric"
-                          value={String(ex.sets ?? 3)}
-                          onChange={(e) =>
-                            updateExercise(ex.id, {
-                              sets: Math.max(1, Number(e.target.value || 1)),
-                            })
-                          }
-                          className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                          placeholder="3"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-label text-brand-accent mb-1">Reps</label>
-                        <input
-                          inputMode="numeric"
-                          value={String(ex.reps ?? 10)}
-                          onChange={(e) =>
-                            updateExercise(ex.id, {
-                              reps: Math.max(1, Number(e.target.value || 1)),
-                            })
-                          }
-                          className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                          placeholder="10"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Link */}
-                    <div>
-                      <label className="block text-label text-brand-accent mb-1">
-                        YouTube link (optional)
-                      </label>
-                      <input
-                        value={ex.link || ""}
-                        onChange={(e) => updateExercise(ex.id, { link: e.target.value })}
-                        className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
-                        placeholder="https://www.youtube.com/watch?v=..."
-                      />
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between">
-                      {ex.link ? (
-                        <a
-                          href={ex.link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline text-brand-accent"
-                        >
-                          Test link ↗
-                        </a>
-                      ) : (
-                        <span className="text-neutral-400">Add a link to preview</span>
-                      )}
-                      <button
-                        onClick={() => removeExercise(ex.id)}
-                        className="px-3 py-2 rounded-button hover:bg-[#181818]"
-                        title="Delete exercise"
-                        aria-label="Delete exercise"
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  </div>
-                )
               )}
             </div>
-          )}
+          ))}
         </div>
-      ))}
+      ) : (
+        GROUPS.map(group => (
+          <div key={group} className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-h2 font-mont font-bold">{group}</h3>
+              <button className="icon-btn" onClick={() => openCreate(group)} aria-label={`Add ${group}`}>
+                <PlusIcon />
+              </button>
+            </div>
+
+            {grouped[group].length === 0 ? (
+              <div className="text-neutral-500 text-sm">No exercises in {group} yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {grouped[group].map(ex => (
+                  <div key={ex.id}
+                       className="flex items-center justify-between rounded-card border border-brand-border bg-brand-input px-3 py-2">
+                    <button
+                      className="text-left text-body underline decoration-brand-accent underline-offset-2"
+                      onClick={() => (isSelectMode ? pickExistingForDay(ex.id) : openEdit(ex))}
+                    >
+                      {ex.name}
+                    </button>
+                    {!isSelectMode && (
+                      <button className="icon-btn" onClick={() => removeExercise(ex.id)} aria-label="Delete">
+                        <TrashIcon />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      {/* Modal for create/edit */}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Edit Exercise" : `Add Exercise to ${targetGroup}`}
+        actions={
+          <>
+            <button
+              className="px-4 py-2 rounded-button bg-brand-primary text-black"
+              onClick={editing ? saveEdit : saveCreate}
+            >
+              {editing ? "Save" : isSelectMode ? "Create & Add to Day" : "Create"}
+            </button>
+            <button className="px-4 py-2 rounded-button border border-brand-border"
+                    onClick={() => setModalOpen(false)}>
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="block text-label text-brand-accent mb-1">Name</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+              className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
+              placeholder="e.g., Incline Chest Press"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-label text-brand-accent mb-1">Group</label>
+              <select
+                value={targetGroup}
+                onChange={(e) => setTargetGroup(e.target.value)}
+                className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
+              >
+                {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-label text-brand-accent mb-1">Sets</label>
+              <input
+                inputMode="numeric"
+                value={form.sets}
+                onChange={(e) => setForm(f => ({ ...f, sets: e.target.value }))}
+                className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
+                placeholder="3"
+              />
+            </div>
+            <div>
+              <label className="block text-label text-brand-accent mb-1">Reps</label>
+              <input
+                inputMode="numeric"
+                value={form.reps}
+                onChange={(e) => setForm(f => ({ ...f, reps: e.target.value }))}
+                className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
+                placeholder="10"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-label text-brand-accent mb-1">YouTube link (optional)</label>
+            <input
+              value={form.link}
+              onChange={(e) => setForm(f => ({ ...f, link: e.target.value }))}
+              className="w-full rounded-card border border-brand-border bg-brand-input px-3 py-2 text-body"
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
