@@ -153,3 +153,28 @@ input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:
 /* Timer pill */
 .timer-pill { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.05); cursor:pointer; }
 .mono { font-feature-settings: "tnum"; letter-spacing:.3px; }
+
+/* === Custom polish === */
+
+/* active pill */
+.pill.is-active {
+  background: var(--orange);
+  color: #141414;
+  box-shadow: 0 0 24px #f1620222;
+}
+
+/* inactive pill */
+.pill {
+  background: #0f0f10;
+  color: #fff;
+  border: 1px solid #2a2a2a;
+}
+
+/* input placeholders fade away on focus */
+.input::placeholder {
+  color: #9a9a9a;
+  transition: opacity .15s;
+}
+.input:focus::placeholder {
+  opacity: 0;
+}
