@@ -273,9 +273,6 @@ export function useStore() {
   };
 }
 
-// --- StoreProvider: a future-proof shell around your global store ---
-import React from "react";
-
 // Optional bootstrap logic lives here (migrations, hydration, analytics, etc.)
 export function StoreProvider({ children }) {
   // Example: one-time bootstrap spot
