@@ -1,161 +1,145 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+// src/store.js
+// Single source of truth + safe load/save + migrations
 
-// --- Local storage key
-const LS_KEY = "workout_tracker_state_v3";
+export const LS_KEY = "workout-tracker:v3";
 
-// --- Helpers
+// Canonical groups (same order as UI)
+export const GROUPS = [
+  "Chest",
+  "Back",
+  "Shoulders",
+  "Legs",
+  "Arms",
+  "Core",
+  "Cardio",
+  "Other",
+];
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-const GROUPS = ["Chest","Back","Shoulders","Legs","Arms","Core","Cardio","Other"];
-
-// --- Defaults
-const defaultExercises = [
+export const DEFAULT_EXERCISES = [
   { id: uid(), name: "Incline Chest Press", group: "Chest", sets: 4, reps: 10, link: "" },
   { id: uid(), name: "Seated Cable Row", group: "Back", sets: 4, reps: 10, link: "" },
   { id: uid(), name: "Lateral Raises", group: "Shoulders", sets: 3, reps: 12, link: "" },
 ];
 
-const defaultState = {
+export const DEFAULT_STATE = {
   units: "kg",
-  exercises: defaultExercises,
+  restSec: 90,
+  exercises: DEFAULT_EXERCISES,
   plan: {
     days: [
-      { id: uid(), name: "Upper A", exerciseIds: [defaultExercises[0].id, defaultExercises[1].id, defaultExercises[2].id] },
+      { id: uid(), name: "Upper A", exerciseIds: DEFAULT_EXERCISES.map(e => e.id) },
       { id: uid(), name: "Upper B", exerciseIds: [] },
       { id: uid(), name: "Lower",  exerciseIds: [] },
       { id: uid(), name: "Full Body", exerciseIds: [] },
     ],
   },
-  logs: [], // {id, dateISO, dayId, entries:[{exerciseId, sets:[{weight, reps}]}]}
+  logs: [], // {id,dateISO,dayId,entries:[{exerciseId, sets:[{w,r}]}]}
 };
 
-// --- Load & save
-function load() {
+// ----- Migration helpers -----
+function coerceExercise(e) {
+  return {
+    id: e.id || uid(),
+    name: typeof e.name === "string" ? e.name : "Exercise",
+    group: GROUPS.includes(e.group) ? e.group : "Other",
+    sets: Number.isFinite(e.sets) ? e.sets : 3,
+    reps: Number.isFinite(e.reps) ? e.reps : 10,
+    link: typeof e.link === "string" ? e.link : "",
+  };
+}
+
+function coerceDay(d) {
+  return {
+    id: d.id || uid(),
+    name: typeof d.name === "string" ? d.name : "Day",
+    exerciseIds: Array.isArray(d.exerciseIds) ? d.exerciseIds.filter(Boolean) : [],
+  };
+}
+
+function migrate(raw) {
+  // v1/v2 → v3 shape
+  const s = { ...DEFAULT_STATE, ...(raw || {}) };
+
+  s.units = s.units === "lb" ? "lb" : "kg";
+  s.restSec = Number.isFinite(s.restSec) ? s.restSec : 90;
+
+  s.exercises = Array.isArray(s.exercises) ? s.exercises.map(coerceExercise) : DEFAULT_STATE.exercises;
+  s.plan = s.plan && s.plan.days ? s : { ...s, plan: DEFAULT_STATE.plan };
+  s.plan.days = s.plan.days.map(coerceDay);
+
+  // Remove exerciseIds that don’t exist anymore
+  const validIds = new Set(s.exercises.map(e => e.id));
+  s.plan.days = s.plan.days.map(d => ({ ...d, exerciseIds: d.exerciseIds.filter(id => validIds.has(id)) }));
+
+  // Coerce logs to new shape
+  if (!Array.isArray(s.logs)) s.logs = [];
+  s.logs = s.logs.map(l => ({
+    id: l.id || uid(),
+    dateISO: l.dateISO || new Date().toISOString(),
+    dayId: l.dayId || (s.plan.days[0]?.id ?? ""),
+    entries: Array.isArray(l.entries)
+      ? l.entries.map(en => ({
+          exerciseId: en.exerciseId,
+          sets: Array.isArray(en.sets)
+            ? en.sets.map(x => ({ w: Number(x.w) || 0, r: Number(x.r) || 0 }))
+            // backward compat: weights-only arrays
+            : Array.isArray(en.weights)
+              ? en.weights.map(v => ({ w: Number(v) || 0, r: 0 }))
+              : [],
+        }))
+      : [],
+  }));
+
+  return s;
+}
+
+// ----- Public API -----
+export function loadState() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return defaultState;
-    const parsed = JSON.parse(raw);
-    // Tiny migrations/guards
-    parsed.units = parsed.units || "kg";
-    parsed.plan ||= { days: [] };
-    parsed.logs ||= [];
-    parsed.exercises ||= [];
-    return parsed;
-  } catch {
-    return defaultState;
+    const parsed = raw ? JSON.parse(raw) : null;
+    return migrate(parsed);
+  } catch (e) {
+    console.warn("State load failed, using defaults:", e);
+    return DEFAULT_STATE;
   }
 }
-function save(state) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {}
+
+export function saveState(state) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn("State save failed:", e);
+  }
 }
 
-// --- Context
-const Ctx = createContext(null);
+// small in-memory store (no Redux)
+let _state = loadState();
+const listeners = new Set();
 
-export function StoreProvider({ children }) {
-  const [state, setState] = useState(defaultState);
-  const [ready, setReady] = useState(false);
+export function getState() { return _state; }
+export function setState(updater) {
+  _state = typeof updater === "function" ? updater(_state) : updater;
+  saveState(_state);
+  listeners.forEach(fn => fn(_state));
+}
+export function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
-  useEffect(() => { setState(load()); setReady(true); }, []);
-  useEffect(() => { if (ready) save(state); }, [state, ready]);
-
-  // --- Exercise CRUD
-  const addExercise = () => {
-    const ex = { id: uid(), name: "New Exercise", group: "Other", sets: 3, reps: 10, link: "" };
-    setState(s => ({ ...s, exercises: [...s.exercises, ex] }));
-  };
-  const updateExercise = (id, patch) => {
-    setState(s => ({ ...s, exercises: s.exercises.map(e => (e.id === id ? { ...e, ...patch } : e)) }));
-  };
-  const removeExercise = (id) => {
-    setState(s => ({
-      ...s,
-      exercises: s.exercises.filter(e => e.id !== id),
-      plan: { ...s.plan, days: s.plan.days.map(d => ({ ...d, exerciseIds: d.exerciseIds.filter(x => x !== id) })) },
-      logs: s.logs.map(l => ({ ...l, entries: l.entries.filter(en => en.exerciseId !== id) })),
-    }));
-  };
-
-  // --- Plan CRUD
-  const addDay = () => {
-    const d = { id: uid(), name: "New Day", exerciseIds: [] };
-    setState(s => ({ ...s, plan: { ...s.plan, days: [...s.plan.days, d] } }));
-  };
-  const updateDay = (id, patch) => {
-    setState(s => ({ ...s, plan: { ...s.plan, days: s.plan.days.map(d => (d.id === id ? { ...d, ...patch } : d)) } }));
-  };
-  const removeDay = (id) => {
-    setState(s => ({ ...s, plan: { ...s.plan, days: s.plan.days.filter(d => d.id !== id) } }));
-  };
-  const addExerciseToDay = (dayId, exId) => {
-    setState(s => ({
-      ...s,
-      plan: { ...s.plan, days: s.plan.days.map(d => (d.id === dayId && !d.exerciseIds.includes(exId) ? { ...d, exerciseIds: [...d.exerciseIds, exId] } : d)) },
-    }));
-  };
-  const removeExerciseFromDay = (dayId, exId) => {
-    setState(s => ({
-      ...s,
-      plan: { ...s.plan, days: s.plan.days.map(d => (d.id === dayId ? { ...d, exerciseIds: d.exerciseIds.filter(x => x !== exId) } : d)) },
-    }));
-  };
-
-  // --- Session helpers
-  function findLastEntry(logs, exId) {
-    for (let i = logs.length - 1; i >= 0; i--) {
-      const en = logs[i].entries.find(e => e.exerciseId === exId);
-      if (en) return en;
-    }
-    return null;
-  }
-
-  // Build a prefilled session for a day (weights from last time)
-  const buildSessionForDay = (dayId) => {
-    const day = state.plan.days.find(d => d.id === dayId) || state.plan.days[0];
-    if (!day) return null;
-    const entries = day.exerciseIds.map(eid => {
-      const ex = state.exercises.find(e => e.id === eid);
-      const last = findLastEntry(state.logs, eid);
-      const setsCount = ex?.sets || 3;
-      const sets = Array.from({ length: setsCount }, (_, i) => {
-        const w = last?.sets?.[i]?.weight ?? last?.sets?.[last?.sets?.length - 1]?.weight ?? 0;
-        const r = last?.sets?.[i]?.reps   ?? ex?.reps ?? 10;
-        return { weight: String(w), reps: String(r) };
-      });
+// Utilities
+export function byIdMap(arr) { return Object.fromEntries(arr.map(x => [x.id, x])); }
+export function newLogFromDay(day, exercises, restSec) {
+  const map = byIdMap(exercises);
+  return {
+    id: uid(),
+    dateISO: new Date().toISOString(),
+    dayId: day.id,
+    entries: day.exerciseIds.map(eid => {
+      const ex = map[eid];
+      const sets = Array.from({ length: ex?.sets ?? 3 }, () => ({ w: 0, r: ex?.reps ?? 10 }));
       return { exerciseId: eid, sets };
-    });
-    return { dayId: day.id, dateISO: new Date().toISOString(), entries };
+    }),
+    restSec: Number.isFinite(restSec) ? restSec : 90,
   };
-
-  const saveSession = (session) => {
-    const clean = {
-      id: uid(),
-      dateISO: session.dateISO,
-      dayId: session.dayId,
-      entries: session.entries.map(e => ({
-        exerciseId: e.exerciseId,
-        sets: e.sets.map(s => ({ weight: Number(s.weight) || 0, reps: Number(s.reps) || 0 })),
-      })),
-    };
-    setState(s => ({ ...s, logs: [...s.logs, clean] }));
-  };
-
-  const exerciseMap = useMemo(() => Object.fromEntries(state.exercises.map(e => [e.id, e])), [state.exercises]);
-
-  const api = {
-    state, ready, GROUPS,
-    // plan + exercises
-    addExercise, updateExercise, removeExercise,
-    addDay, updateDay, removeDay,
-    addExerciseToDay, removeExerciseFromDay,
-    // session
-    buildSessionForDay, saveSession,
-    // utils
-    exerciseMap,
-    setUnits: (u) => setState(s => ({ ...s, units: u })),
-  };
-
-  return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
-
-export const useStore = () => useContext(Ctx);
