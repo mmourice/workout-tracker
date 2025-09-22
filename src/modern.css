@@ -178,3 +178,62 @@ input[type=number]::-webkit-inner-spin-button{ -webkit-appearance: none; margin:
 .input:focus::placeholder {
   opacity: 0;
 }
+
+/* ===== Minor polish (mobile-friendly) ===== */
+
+/* Active/inactive pill buttons */
+.pill {
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.02);
+  color: #fff;
+}
+.pill--active {
+  background: linear-gradient(180deg, #ff7a1a 0%, #f16202 100%);
+  color: #101013;
+  border-color: transparent;
+  box-shadow: 0 10px 20px rgba(241, 98, 2, 0.25);
+}
+
+/* Icon buttons (# plus/trash) – frameless, touch-friendly */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}
+.icon-btn:active { transform: translateY(1px); }
+
+/* Text inputs: nicer placeholder + number alignment on iOS */
+input[type="number"], input[type="text"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+}
+input::placeholder { color: rgba(255,255,255,0.45); }
+
+/* “Glass” cards */
+.card {
+  background: radial-gradient(120% 120% at 0% 0%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 60%, rgba(255,255,255,0.02) 100%);
+  border: 1px solid rgba(255,255,255,0.10);
+  backdrop-filter: blur(8px);
+  border-radius: 22px;
+}
+
+/* Small divider lines inside lists */
+.hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin: 8px 0;
+}
+
+/* Reduce scroll bounce within cards on iOS */
+.card {
+  -webkit-overflow-scrolling: touch;
+}
