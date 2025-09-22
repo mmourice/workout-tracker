@@ -1,53 +1,30 @@
-import React from 'react'
-import { NavLink, Routes, Route } from 'react-router-dom'
-import Session from './pages/Session.jsx'
-import Plan from './pages/Plan.jsx'
-import Exercises from './pages/Exercises.jsx'
-import History from './pages/History.jsx'
-import Settings from './pages/Settings.jsx'
-import { StoreProvider } from './store.jsx'
+import React from "react";
+import { HashRouter, Routes, Route } from "react-router-dom";
 
-const Tab = ({ to, children }) => (
-  <NavLink
-    to={to}
-    className={({ isActive }) =>
-      'px-3 py-1 rounded-chip border transition ' +
-      (isActive
-        ? 'bg-brand-primary text-black border-brand-primary'
-        : 'bg-transparent text-white border-brand-border')
-    }
-  >
-    <span className="text-label font-mont">{children}</span>
-  </NavLink>
-);
+// pages
+import Session from "./pages/Session.jsx";
+import Plan from "./pages/Plan.jsx";
+import Exercises from "./pages/Exercises.jsx";
+import History from "./pages/History.jsx";
+import Settings from "./pages/Settings.jsx";
 
-export default function App(){
+// store provider
+import { StoreProvider } from "./store.jsx";
+
+function App() {
   return (
     <StoreProvider>
-      <div className="min-h-dvh bg-gradient-to-b from-brand-bgTop to-brand-bgBottom">
-        <header className="px-5 py-3">
-  <h1 className="text-h1 font-mont font-bold">Workout Tracker</h1>
-
-  {/* Tabs BELOW title on mobile; wrap nicely */}
-  <nav className="mt-2 flex flex-wrap gap-2">
-    <Tab to="/">Session</Tab>
-    <Tab to="/plan">Plan</Tab>
-    <Tab to="/exercises">Exercises</Tab>
-    <Tab to="/history">History</Tab>
-    <Tab to="/settings">Settings</Tab>
-  </nav>
-</header>
-
-        <main className="p-5">
-          <Routes>
-            <Route path="/" element={<Session />} />
-            <Route path="/plan" element={<Plan />} />
-            <Route path="/exercises" element={<Exercises />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </main>
-      </div>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<Session />} />
+          <Route path="/plan" element={<Plan />} />
+          <Route path="/exercises" element={<Exercises />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </HashRouter>
     </StoreProvider>
-  )
+  );
 }
+
+export default App;
