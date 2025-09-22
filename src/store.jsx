@@ -272,3 +272,16 @@ export function useStore() {
     buildSessionForDay, saveSession, addLog, deleteLog, findLastExerciseLog,
   };
 }
+
+// --- StoreProvider: a future-proof shell around your global store ---
+import React from "react";
+
+// Optional bootstrap logic lives here (migrations, hydration, analytics, etc.)
+export function StoreProvider({ children }) {
+  // Example: one-time bootstrap spot
+  // React.useEffect(() => {
+  //   // load/migrate persisted data, warm caches, attach global listeners, etc.
+  // }, []);
+
+  return <>{children}</>;
+}
