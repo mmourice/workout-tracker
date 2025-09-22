@@ -1,182 +1,130 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useStore } from "../store.jsx";
-import { TrashIcon, PlusIcon } from "../Icons.jsx";
-
-const fmt = (s) => {
-  const m = Math.floor(s / 60).toString().padStart(2, "0");
-  const sec = Math.floor(s % 60).toString().padStart(2, "0");
-  return `${m}:${sec}`;
-};
+import React, { useState, useMemo } from "react";
+import { useStore } from "../store.js";
+import { TrashIcon } from "../Icons.jsx";
 
 export default function Session() {
-  const { state, exerciseMap, findLastExerciseLog, startNewSession, saveCurrentSession, updateSessionEntry, clearSessionForDay } = useStore();
+  const { plan, exercises, logs, addLog } = useStore();
+  const [selectedDayId, setSelectedDayId] = useState(plan[0]?.id || "");
+  const [entries, setEntries] = useState([]);
 
-  // selected day tab (chip)
-  const [dayId, setDayId] = useState(state.plan.days[0]?.id || "");
-  const day = useMemo(() => state.plan.days.find((d) => d.id === dayId) || state.plan.days[0], [state.plan.days, dayId]);
+  const day = useMemo(
+    () => plan.find((d) => d.id === selectedDayId),
+    [plan, selectedDayId]
+  );
 
-  // in-memory timers per exerciseId
-  const [timers, setTimers] = useState({}); // { [exerciseId]: secondsRemaining }
-  const [tick, setTick] = useState(0);
+  const exerciseMap = useMemo(
+    () => Object.fromEntries(exercises.map((e) => [e.id, e])),
+    [exercises]
+  );
 
-  // build or rebuild the session whenever day changes
-  useEffect(() => {
+  function startSession() {
     if (!day) return;
-    startNewSession(day.id);
-  }, [day?.id, startNewSession]);
-
-  // simple 1s heartbeat for timers
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  useEffect(() => {
-    setTimers((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((k) => {
-        if (next[k] > 0) next[k] -= 1;
-      });
-      return next;
+    const initEntries = day.exerciseIds.map((eid) => {
+      const ex = exerciseMap[eid];
+      return {
+        exerciseId: eid,
+        weights: Array.from({ length: ex.sets }, () => ""),
+        reps: Array.from({ length: ex.sets }, () => ""),
+      };
     });
-  }, [tick]);
+    setEntries(initEntries);
+  }
 
-  if (!day) return <div className="muted">Create a plan day first.</div>;
-
-  const chips = [
-    { id: state.plan.days.find(d => /upper a/i.test(d.name))?.id, label: "Upper A" },
-    { id: state.plan.days.find(d => /upper b/i.test(d.name))?.id, label: "Upper B" },
-    { id: state.plan.days.find(d => /lower/i.test(d.name))?.id, label: "Lower" },
-    { id: state.plan.days.find(d => /full/i.test(d.name))?.id, label: "Full Body" },
-  ].filter(Boolean);
-
-  const session = state._session; // current session lives in store
-
-  const unit = state.units || "kg";
-
-  const onChangeWeight = (exerciseId, setIdx, val) => {
-    updateSessionEntry(exerciseId, setIdx, { weight: Number(val) || 0 });
-  };
-  const onChangeReps = (exerciseId, setIdx, val) => {
-    updateSessionEntry(exerciseId, setIdx, { reps: Number(val) || 0 });
-  };
-
-  const startTimer = (exerciseId, seconds = 90) => {
-    setTimers((t) => ({ ...t, [exerciseId]: seconds }));
-  };
-  const resetCard = (exerciseId) => {
-    const ex = exerciseMap[exerciseId];
-    const last = findLastExerciseLog(exerciseId);
-    const sets = ex?.sets || 3;
-    for (let i = 0; i < sets; i++) {
-      updateSessionEntry(exerciseId, i, {
-        weight: last?.weights?.[i] ?? 0,
-        reps: last?.reps?.[i] ?? ex?.reps ?? 10,
-      });
-    }
-  };
-  const removeCard = (exerciseId) => {
-    // clears just this exercise from the session
-    clearSessionForDay(day.id, exerciseId);
-  };
+  function saveSession() {
+    if (!day) return;
+    addLog({
+      id: Date.now().toString(),
+      dateISO: new Date().toISOString(),
+      dayId: day.id,
+      entries,
+    });
+    setEntries([]);
+    alert("Session saved ✅");
+  }
 
   return (
-    <div className="space-y-5">
-      {/* Day chips */}
-      <div className="space-y-2">
-        <div className="text-label">Pick day</div>
-        <div className="chips">
-          {chips.map((c) => (
-            <button
-              key={c.id}
-              className={`chip ${day.id === c.id ? "chip--active" : "chip--idle"}`}
-              onClick={() => setDayId(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+    <div className="page session">
+      <h2>Session</h2>
+
+      <div className="pill-row">
+        {plan.map((d) => (
+          <button
+            key={d.id}
+            className={`pill ${d.id === selectedDayId ? "pill--active" : ""}`}
+            onClick={() => setSelectedDayId(d.id)}
+          >
+            {d.name}
+          </button>
+        ))}
       </div>
 
-      {/* Actions */}
-      <div className="chips">
-        <button className="chip chip--idle" onClick={() => startNewSession(day.id, { copyLast: true })}>Copy last</button>
-        <button className="chip chip--idle" onClick={() => startNewSession(day.id, { copyLast: false })}>Clear</button>
-        <button className="cta" onClick={saveCurrentSession}>Save Session</button>
-      </div>
-
-      {/* Exercise cards */}
-      {!day.exerciseIds.length ? (
-        <div className="muted">No exercises in this day. Go to <b>Plan</b> to add some.</div>
+      {!entries.length ? (
+        <button className="btn" onClick={startSession}>
+          Start Session
+        </button>
       ) : (
-        day.exerciseIds.map((eid) => {
-          const ex = exerciseMap[eid];
-          const entry = session?.entries?.find((en) => en.exerciseId === eid);
-          if (!ex || !entry) return null;
-
-          const t = timers[eid] ?? 0;
-
-          return (
-            <div key={eid} className="rounded-card p-4 space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <a
-                  className="card-title linkable"
-                  href={ex.link || "#"}
-                  target={ex.link ? "_blank" : "_self"}
-                  rel="noreferrer"
-                  onClick={(e) => { if (!ex.link) e.preventDefault(); }}
-                >
-                  {ex.name}
-                </a>
-
-                <div className="chips">
-                  <div className="timer-pill" onClick={() => startTimer(eid)}>
-                    <span role="img" aria-label="timer">⏱️</span>
-                    <span className="mono">{fmt(t || 90)}</span>
-                  </div>
-                  <button className="chip chip--idle" onClick={() => resetCard(eid)}>Reset</button>
-                  <button className="icon ghost" onClick={() => updateSessionEntry(eid, entry.weights.length, { addSet: true })} title="Add set">
-                    <PlusIcon />
-                  </button>
-                  <button className="icon ghost" onClick={() => removeCard(eid)} title="Remove card">
-                    <TrashIcon />
-                  </button>
+        <>
+          {entries.map((entry, idx) => {
+            const ex = exerciseMap[entry.exerciseId];
+            return (
+              <div key={idx} className="card">
+                <div className="card-header">
+                  <span>{ex.name}</span>
+                  {ex.link ? (
+                    <a
+                      href={ex.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="external-link"
+                    >
+                      How-to ↗
+                    </a>
+                  ) : null}
+                </div>
+                <div className="sets-grid">
+                  {entry.weights.map((w, i) => (
+                    <div key={i} className="set-box">
+                      <label>Set {i + 1}</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.5"
+                        placeholder="kg"
+                        value={w}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setEntries((prev) => {
+                            const copy = [...prev];
+                            copy[idx].weights[i] = v;
+                            return copy;
+                          });
+                        }}
+                      />
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        step="1"
+                        placeholder="reps"
+                        value={entry.reps[i]}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setEntries((prev) => {
+                            const copy = [...prev];
+                            copy[idx].reps[i] = v;
+                            return copy;
+                          });
+                        }}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              {/* 2-column sets */}
-              <div className="grid-sets">
-                {entry.weights.map((w, i) => (
-                  <div key={i} className="set-card">
-                    <div className="text-label mb-2">Set {i + 1}</div>
-                    <button className="close-x" onClick={() => updateSessionEntry(eid, i, { deleteSet: true })}>×</button>
-                    <div className="row">
-                      <div className="input-wrap">
-                        <input
-                          inputMode="decimal"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={String(w ?? "")}
-                          onChange={(e) => onChangeWeight(eid, i, e.target.value)}
-                        />
-                        <span className="suffix">{unit}</span>
-                      </div>
-                      <div className="input-wrap">
-                        <input
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          placeholder="0"
-                          value={String(entry.reps?.[i] ?? "")}
-                          onChange={(e) => onChangeReps(eid, i, e.target.value)}
-                        />
-                        <span className="suffix">reps</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })
+            );
+          })}
+          <button className="btn" onClick={saveSession}>
+            Save Session
+          </button>
+        </>
       )}
     </div>
   );
